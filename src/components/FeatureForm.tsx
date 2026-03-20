@@ -95,9 +95,19 @@ export function FeatureForm({
 
   function handleSubmit(values: FeatureFormValues) {
     if (isEditing && onUpdate && feature) {
-      onUpdate(feature.id, values);
+      onUpdate(feature.id, {
+        title: values.title,
+        description: values.description,
+        priority: values.priority,
+        status: values.status,
+      });
     } else {
-      onSubmit(values);
+      onSubmit({
+        title: values.title,
+        description: values.description,
+        priority: values.priority,
+        status: values.status,
+      });
     }
   }
 
