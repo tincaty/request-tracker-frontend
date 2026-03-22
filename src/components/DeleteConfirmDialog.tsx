@@ -47,7 +47,12 @@ export function DeleteConfirmDialog({
             Cancel
           </AlertDialogCancel>
           <AlertDialogAction
-            onClick={() => feature && onConfirm(feature.id)}
+            onClick={() => {
+              if (!feature) return;
+              const id = feature.id;
+              onClose(); // first close the dialog
+              setTimeout(() => onConfirm(id), 0); // trigger delete and toast after render
+            }}
             disabled={isDeleting}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >

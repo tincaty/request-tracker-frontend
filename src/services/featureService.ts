@@ -1,4 +1,4 @@
-import { Feature, CreateFeatureDTO, UpdateFeatureDTO } from "@/types/feature";
+import { Feature, CreateFeatureDTO, UpdateFeatureDTO ,FeatureStatus} from "@/types/feature";
 import { apiRequest } from "./api";
 import { mockFeatures, simulateDelay } from "./mockData";
 
@@ -22,7 +22,7 @@ export async function getFeatures(): Promise<Feature[]> {
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
   }
-  return apiRequest<Feature[]>("/features");
+  return apiRequest<Feature[]>("/");
 }
 
 /**
@@ -35,7 +35,7 @@ export async function getFeatureById(id: string): Promise<Feature> {
     if (!feature) throw new Error("Feature not found");
     return { ...feature };
   }
-  return apiRequest<Feature>(`/features/${id}`);
+  return apiRequest<Feature>(`/${id}`);
 }
 
 /**
@@ -48,12 +48,12 @@ export async function createFeature(data: CreateFeatureDTO): Promise<Feature> {
       ...data,
       id: generateId(),
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+
     };
     mockStore = [newFeature, ...mockStore];
     return { ...newFeature };
   }
-  return apiRequest<Feature>("/features", {
+  return apiRequest<Feature>("/", {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -70,13 +70,12 @@ export async function updateFeature(id: string, data: UpdateFeatureDTO): Promise
     const updated: Feature = {
       ...mockStore[index],
       ...data,
-      updatedAt: new Date().toISOString(),
     };
     mockStore = mockStore.map((f) => (f.id === id ? updated : f));
     return { ...updated };
   }
-  return apiRequest<Feature>(`/features/${id}`, {
-    method: "PATCH",
+  return apiRequest<Feature>(`/${id}`, {
+    method: "PUT",
     body: JSON.stringify(data),
   });
 }
@@ -92,5 +91,35 @@ export async function deleteFeature(id: string): Promise<void> {
     mockStore = mockStore.filter((f) => f.id !== id);
     return;
   }
-  return apiRequest<void>(`/features/${id}`, { method: "DELETE" });
+  return apiRequest<void>(`/${id}`, { method: "DELETE" });
+}
+
+
+/**
+ * Update feature status only
+ */
+export async function updateByStatus(
+  id: string,
+  status: FeatureStatus // <-- enforce valid status
+): Promise<Feature> {
+  if (USE_MOCK) {
+    await simulateDelay();
+
+    const index = mockStore.findIndex((f) => f.id === id);
+    if (index === -1) throw new Error("Feature not found");
+
+    const updated: Feature = {
+      ...mockStore[index],
+      status, 
+    };
+
+    mockStore = mockStore.map((f) => (f.id === id ? updated : f));
+    return { ...updated };
+  }
+
+  // Call backend PATCH endpoint
+  return apiRequest<Feature>(`/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }), 
+  });
 }

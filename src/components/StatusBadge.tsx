@@ -33,7 +33,13 @@ const statusConfig: Record<
 };
 
 export function StatusBadge({ status, className, size = "md" }: StatusBadgeProps) {
-  const { label, icon: Icon, colorClass } = statusConfig[status];
+  const config = statusConfig[status] ?? {
+    label: status,
+    icon: Circle,
+    colorClass: "bg-gray-200 text-gray-700 border border-gray-200",
+  };
+
+  const { label, icon: Icon, colorClass } = config;
 
   return (
     <span

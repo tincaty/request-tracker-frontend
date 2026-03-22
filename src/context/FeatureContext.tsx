@@ -11,16 +11,16 @@ import {
   UpdateFeatureDTO,
   FeatureFilters,
   FilterStatus,
+  FeatureStatus,
 } from "@/types/feature";
 import {
   getFeatures,
   createFeature,
   updateFeature,
   deleteFeature,
+  updateByStatus, // ✅ new import for PATCH
 } from "@/services/featureService";
 import { toast } from "sonner";
-
-// ── State ────────────────────────────────────────────────────────────────────
 
 interface FeatureState {
   features: Feature[];
@@ -45,8 +45,6 @@ const initialState: FeatureState = {
   isDeleteDialogOpen: false,
   featureToDelete: null,
 };
-
-// ── Actions ───────────────────────────────────────────────────────────────────
 
 type Action =
   | { type: "SET_LOADING"; payload: boolean }
@@ -123,7 +121,7 @@ interface FeatureContextValue extends FeatureState {
   handleCreateFeature: (data: CreateFeatureDTO) => Promise<void>;
   handleUpdateFeature: (id: string, data: UpdateFeatureDTO) => Promise<void>;
   handleDeleteFeature: (id: string) => Promise<void>;
-  handleQuickStatusChange: (id: string, status: Feature["status"]) => Promise<void>;
+  handleQuickStatusChange: (id: string, status: FeatureStatus) => Promise<void>;
   setFilterStatus: (status: FilterStatus) => void;
   setFilterSearch: (search: string) => void;
   openCreateForm: () => void;
@@ -142,11 +140,9 @@ export function FeatureProvider({ children }: { children: ReactNode }) {
 
   const filteredFeatures = React.useMemo(() => {
     let list = [...state.features];
-
     if (state.filters.status !== "All") {
       list = list.filter((f) => f.status === state.filters.status);
     }
-
     const q = state.filters.search.toLowerCase().trim();
     if (q) {
       list = list.filter(
@@ -155,7 +151,6 @@ export function FeatureProvider({ children }: { children: ReactNode }) {
           f.description.toLowerCase().includes(q)
       );
     }
-
     return list;
   }, [state.features, state.filters]);
 
@@ -168,7 +163,7 @@ export function FeatureProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to load features";
       dispatch({ type: "SET_ERROR", payload: msg });
-      toast.error("Failed to load feature requests");
+      toast.error(msg);
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
@@ -219,16 +214,21 @@ export function FeatureProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  /**
+   * ✅ New: Quick status change using PATCH endpoint
+   */
   const handleQuickStatusChange = useCallback(
-    async (id: string, status: Feature["status"]) => {
-      // Optimistic update
+    async (id: string, status: FeatureStatus) => {
       const prev = state.features.find((f) => f.id === id);
       if (!prev) return;
+
+      // Optimistic UI
       dispatch({ type: "UPDATE_FEATURE", payload: { ...prev, status } });
+
       try {
-        const updated = await updateFeature(id, { status });
+        const updated = await updateByStatus(id, status);
         dispatch({ type: "UPDATE_FEATURE", payload: updated });
-        toast.success(`Status changed to "${status}"`);
+        toast.success(`Status updated to "${status}"`);
       } catch (err) {
         // Rollback
         dispatch({ type: "UPDATE_FEATURE", payload: prev });
@@ -246,25 +246,11 @@ export function FeatureProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "SET_FILTER_SEARCH", payload: search });
   }, []);
 
-  const openCreateForm = useCallback(() => {
-    dispatch({ type: "OPEN_FORM" });
-  }, []);
-
-  const openEditForm = useCallback((feature: Feature) => {
-    dispatch({ type: "OPEN_FORM", payload: feature });
-  }, []);
-
-  const closeForm = useCallback(() => {
-    dispatch({ type: "CLOSE_FORM" });
-  }, []);
-
-  const openDeleteDialog = useCallback((feature: Feature) => {
-    dispatch({ type: "OPEN_DELETE_DIALOG", payload: feature });
-  }, []);
-
-  const closeDeleteDialog = useCallback(() => {
-    dispatch({ type: "CLOSE_DELETE_DIALOG" });
-  }, []);
+  const openCreateForm = useCallback(() => dispatch({ type: "OPEN_FORM" }), []);
+  const openEditForm = useCallback((feature: Feature) => dispatch({ type: "OPEN_FORM", payload: feature }), []);
+  const closeForm = useCallback(() => dispatch({ type: "CLOSE_FORM" }), []);
+  const openDeleteDialog = useCallback((feature: Feature) => dispatch({ type: "OPEN_DELETE_DIALOG", payload: feature }), []);
+  const closeDeleteDialog = useCallback(() => dispatch({ type: "CLOSE_DELETE_DIALOG" }), []);
 
   return (
     <FeatureContext.Provider
@@ -292,8 +278,6 @@ export function FeatureProvider({ children }: { children: ReactNode }) {
 
 export function useFeatureContext(): FeatureContextValue {
   const ctx = useContext(FeatureContext);
-  if (!ctx) {
-    throw new Error("useFeatureContext must be used within a FeatureProvider");
-  }
+  if (!ctx) throw new Error("useFeatureContext must be used within a FeatureProvider");
   return ctx;
 }
